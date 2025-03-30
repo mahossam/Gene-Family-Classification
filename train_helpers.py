@@ -6,18 +6,24 @@ from torchmetrics import Accuracy, F1Score, Precision, Recall, MetricCollection
 
 
 def compute_metrics(y_pred, y_true, y_probs, num_classes) -> Dict[str, float]:
+    '''Compute the accuracy and classification metrics from the predictions and probs'''
     metrics = MetricCollection(
         {
-            "accuracy": Accuracy(task="multiclass", num_classes=num_classes, average="macro"),
-            "f1": F1Score(task="multiclass",num_classes=num_classes, average="macro"),
-            "precision": Precision(task="multiclass",num_classes=num_classes, average="macro"),
-            "recall": Recall(task="multiclass", num_classes=num_classes, average="macro"),
+            "accuracy": Accuracy(task="multiclass", num_classes=num_classes,
+                                 average="macro"),
+            "f1": F1Score(task="multiclass", num_classes=num_classes, average="macro"),
+            "precision": Precision(task="multiclass", num_classes=num_classes,
+                                   average="macro"),
+            "recall": Recall(task="multiclass", num_classes=num_classes,
+                             average="macro"),
         }
     )
-    metrics.update(torch.tensor(y_pred, dtype=torch.float32), torch.tensor(y_true, dtype=torch.float32))
+    metrics.update(torch.tensor(y_pred, dtype=torch.float32),
+                   torch.tensor(y_true, dtype=torch.float32))
     metrics_computed = metrics.compute()
     metrics_computed = {k: v.item() for k, v in metrics_computed.items()}
     return metrics_computed
+
 
 def train_batch(model, loss_func, x, y, optimizer=None):
     '''
@@ -53,7 +59,8 @@ def train_step(model, train_dl, loss_func, device, optimizer):
     for x_batch, y_batch in train_dl:
         x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
-        loss, batch_size, _, _ = train_batch(model, loss_func, x_batch, y_batch, optimizer=optimizer)
+        loss, batch_size, _, _ = train_batch(model, loss_func, x_batch, y_batch,
+                                             optimizer=optimizer)
 
         losses.append(loss)
         batch_sizes.append(batch_size)
@@ -79,7 +86,9 @@ def eval_step(model, val_dl, loss_func, device):
         for x_batch, y_batch in val_dl:
             x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
-            loss, batch_size, batch_preds, batch_probs = train_batch(model, loss_func, x_batch, y_batch, optimizer=None)
+            loss, batch_size, batch_preds, batch_probs = train_batch(model, loss_func,
+                                                                     x_batch, y_batch,
+                                                                     optimizer=None)
 
             losses.append(loss)
             batch_sizes.append(batch_size)
@@ -90,10 +99,12 @@ def eval_step(model, val_dl, loss_func, device):
     # average the losses over all batches
     val_loss = np.sum(np.multiply(losses, batch_sizes)) / np.sum(batch_sizes)
 
-    return val_loss, np.concatenate(preds), np.concatenate(probs), np.concatenate(true_labels)
+    return val_loss, np.concatenate(preds), np.concatenate(probs), np.concatenate(
+        true_labels)
 
 
-def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, device, patience=1000):
+def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, device,
+        patience=1000):
     '''
     Fit the model params to the training data, eval on unseen data.
     Loop for a number of epochs and keep train of train and val losses
@@ -109,14 +120,12 @@ def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, devi
         train_loss = train_step(model, train_dl, loss_func, device, optimizer)
         train_losses.append(train_loss)
 
-        _, train_summary, _, _, _ = get_eval_summary(model=model, val_dl=train_dl,
-                                                    loss_func=loss_func,
-                                                    num_classes=num_classes,
-                                                    device=device)
-        print(f"E{epoch} | Train loss: {train_loss:.3f} | metrics: {train_summary}")
-
         # take a validation step
-        val_loss, summary_message, _, _, _ = get_eval_summary(model=model, val_dl=val_dl, loss_func=loss_func, num_classes=num_classes, device=device)
+        val_loss, summary_message, _, _, _ = get_eval_summary(model=model,
+                                                              val_dl=val_dl,
+                                                              loss_func=loss_func,
+                                                              num_classes=num_classes,
+                                                              device=device)
         print(f"E{epoch} | Val: {summary_message}")
 
         val_losses.append(val_loss)
@@ -125,6 +134,7 @@ def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, devi
 
 
 def get_eval_summary(model, val_dl, loss_func, num_classes, device):
+    '''Calculate the loss and metrics for the input data'''
     val_loss, epoch_preds, epoch_probs, epoch_labels = eval_step(model, val_dl,
                                                                  loss_func, device)
     # calculate the accuracy and classification metrics from the predictions and probs
@@ -134,7 +144,8 @@ def get_eval_summary(model, val_dl, loss_func, num_classes, device):
     return val_loss, summary_message, epoch_preds, epoch_probs, epoch_labels
 
 
-def run_model(train_dl, val_dl, test_dl, model, num_classes, device, lr=0.001, epochs=30):
+def run_model(train_dl, val_dl, test_dl, model, num_classes, device, lr=0.001,
+              epochs=30):
     '''
     Given train and val DataLoaders and a NN model, fit the mode to the training
     data.
@@ -153,7 +164,11 @@ def run_model(train_dl, val_dl, test_dl, model, num_classes, device, lr=0.001, e
         num_classes=num_classes,
         device=device)
 
-    # run the evaluation on the test set
-    _, _, test_preds, test_probs, test_labels = get_eval_summary(model=model, val_dl=test_dl, loss_func=loss_func, num_classes=num_classes, device=device)
+    # Get test predictions
+    _, _, test_preds, test_probs, test_labels = get_eval_summary(model=model,
+                                                                 val_dl=test_dl,
+                                                                 loss_func=loss_func,
+                                                                 num_classes=num_classes,
+                                                                 device=device)
 
     return train_losses, val_losses, test_preds, test_probs, test_labels

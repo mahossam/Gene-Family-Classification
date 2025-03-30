@@ -1,4 +1,3 @@
-import random
 from typing import Tuple
 
 import numpy as np
@@ -13,6 +12,7 @@ nucleotide_encoding = {'A': [1.0, 0.0, 0.0, 0.0, 0.0],
                        'G': [0.0, 0.0, 1.0, 0.0, 0.0],
                        'T': [0.0, 0.0, 0.0, 1.0, 0.0],
                        'N': [0.0, 0.0, 0.0, 0.0, 0.0]}
+
 
 def load_data(data_path="./dna_seq_families.csv"):
     """
@@ -29,8 +29,9 @@ def load_data(data_path="./dna_seq_families.csv"):
 
     return df
 
+
 def filter_and_split(
-    data: pd.DataFrame, random_seed: int, test_split_index: int, n_test_splits: int
+        data: pd.DataFrame, random_seed: int, test_split_index: int, n_test_splits: int
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Split into train and test sets.
 
@@ -50,8 +51,6 @@ def filter_and_split(
     Tuple[pd.DataFrame, pd.DataFrame]
         The train and test data.
     """
-    # make sure the random seed is set
-
     data.loc[:, "fold_index"] = np.random.randint(
         low=0, high=n_test_splits, size=len(data)
     )
@@ -103,7 +102,8 @@ class DNADataset(Dataset):
             if self.augment_reverse:
                 # augment the dataset with reverse complement sequences
                 complement_table = str.maketrans("ACGTacgt", "TGCAtgca")
-                augmented_seqs = [seq.translate(complement_table)[::-1] for seq in self.seqs]
+                augmented_seqs = [seq.translate(complement_table)[::-1] for seq in
+                                  self.seqs]
                 augmented_labels = [label for label in self.labels]
                 self.seqs += augmented_seqs
                 self.labels += augmented_labels
@@ -177,9 +177,9 @@ def build_dataloaders(train_data,
     train_ds = DNADataset(train_data, seq_col=seq_col, target_col=target_col,
                           window_size=max_length, augment_reverse=False)
     val_ds = DNADataset(val_data, seq_col=seq_col, target_col=target_col,
-                         window_size=max_length, augment_reverse=False)
+                        window_size=max_length, augment_reverse=False)
     test_ds = DNADataset(test_data, seq_col=seq_col, target_col=target_col,
-                          window_size=max_length, augment_reverse=False)
+                         window_size=max_length, augment_reverse=False)
 
     # Put DataSets into DataLoaders
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=shuffle)
