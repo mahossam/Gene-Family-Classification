@@ -42,7 +42,6 @@ def load_data():
     return df
 
 
-
 data = load_data()
 
 full_train_df, test_df = quick_split(data)
@@ -50,7 +49,6 @@ train_df, val_df = quick_split(full_train_df)
 
 max_seq_len = 8192
 train_dl, val_dl = build_dataloaders(train_df, val_df, max_length=max_seq_len)
-
 
 print("Train:", train_df.shape)
 print("Val:", val_df.shape)
@@ -202,6 +200,7 @@ DEVICE = torch.device('mps' if torch.mps.is_available() else 'cpu')
 
 seq_len = max_seq_len
 
+
 # create Linear model object
 # model_lin = DNA_Linear(seq_len)
 # model_lin.to(DEVICE) # put on GPU
@@ -232,7 +231,7 @@ def loss_plot(data_label_list, loss_type="CE Loss"):
 
 # create Linear model object
 model_cnn = DNA_CNN(seq_len=seq_len, num_classes=data.gene_family.nunique())
-model_cnn.to(DEVICE) # put on GPU
+model_cnn.to(DEVICE)  # put on GPU
 
 # run the model with default settings!
 cnn_train_losses, cnn_val_losses = run_model(
@@ -242,5 +241,5 @@ cnn_train_losses, cnn_val_losses = run_model(
     DEVICE
 )
 
-cnn_data_label = (cnn_train_losses,cnn_val_losses,"CNN")
+cnn_data_label = (cnn_train_losses, cnn_val_losses, "CNN")
 loss_plot([cnn_data_label])

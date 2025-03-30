@@ -80,8 +80,8 @@ class SeqDatasetOHE(Dataset):
             # one-hot encode sequences, then stack in a torch tensor
 
             self.encoded_seqs = torch.stack(
-                [torch.tensor(one_hot_encode(x)) for x in self.seqs])
-            self.labels = torch.tensor(self.labels).unsqueeze(1)
+                [torch.tensor(one_hot_encode(x)) for x in self.seqs]).to(torch.float32)
+            self.labels = torch.tensor(self.labels).unsqueeze(1).to(torch.float32)
 
     def _slice_sequences(self):
         """
