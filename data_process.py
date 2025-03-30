@@ -8,12 +8,11 @@ import torch
 
 # Dictionary returning one-hot encoding for each nucleotide.
 # The symbol '-' is for padding
-nucleotide_encoding = {'A': [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                       'C': [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-                       'G': [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                       'T': [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-                       'N': [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-                       '-': [0.0, 0.0, 0.0, 0.0, 0.0, 1.0], }
+nucleotide_encoding = {'A': [1.0, 0.0, 0.0, 0.0, 0.0],
+                       'C': [0.0, 1.0, 0.0, 0.0, 0.0],
+                       'G': [0.0, 0.0, 1.0, 0.0, 0.0],
+                       'T': [0.0, 0.0, 0.0, 1.0, 0.0],
+                       'N': [0.0, 0.0, 0.0, 0.0, 0.0]}
 
 def load_data(data_path="./dna_seq_families.csv"):
     """
@@ -84,7 +83,7 @@ class DNADataset(Dataset):
     '''
     Dataset for one-hot-encoded sequences
     '''
-    pad_symbol = '-'
+    pad_symbol = 'N'
 
     def __init__(self,
                  data,
@@ -178,7 +177,7 @@ def build_dataloaders(train_data,
 
     # create Datasets
     train_ds = DNADataset(train_data, seq_col=seq_col, target_col=target_col,
-                          window_size=max_length, augment_reverse=True)
+                          window_size=max_length, augment_reverse=False)
     val_ds = DNADataset(val_data, seq_col=seq_col, target_col=target_col,
                          window_size=max_length, augment_reverse=False)
     test_ds = DNADataset(test_data, seq_col=seq_col, target_col=target_col,

@@ -109,9 +109,15 @@ def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, devi
         train_loss = train_step(model, train_dl, loss_func, device, optimizer)
         train_losses.append(train_loss)
 
+        _, train_summary, _, _, _ = get_eval_summary(model=model, val_dl=train_dl,
+                                                    loss_func=loss_func,
+                                                    num_classes=num_classes,
+                                                    device=device)
+        print(f"E{epoch} | Train loss: {train_loss:.3f} | metrics: {train_summary}")
+
         # take a validation step
         val_loss, summary_message, _, _, _ = get_eval_summary(model=model, val_dl=val_dl, loss_func=loss_func, num_classes=num_classes, device=device)
-        print(f"E{epoch} | train loss: {train_loss:.3f} | {summary_message}")
+        print(f"E{epoch} | Val: {summary_message}")
 
         val_losses.append(val_loss)
 
@@ -124,7 +130,7 @@ def get_eval_summary(model, val_dl, loss_func, num_classes, device):
     # calculate the accuracy and classification metrics from the predictions and probs
     metrics = compute_metrics(y_pred=epoch_preds, y_true=epoch_labels,
                               y_probs=epoch_probs, num_classes=num_classes)
-    summary_message = f"val loss: {val_loss:.3f} | acc. {metrics['accuracy']:.3f} | f1: {metrics['f1']:.3f}"
+    summary_message = f"loss: {val_loss:.3f} | acc. {metrics['accuracy']:.3f} | f1: {metrics['f1']:.3f}"
     return val_loss, summary_message, epoch_preds, epoch_probs, epoch_labels
 
 

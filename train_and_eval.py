@@ -1,7 +1,8 @@
 import numpy as np
 import torch
 
-from gene_family.data_process import build_dataloaders, filter_and_split, load_data
+from gene_family.data_process import build_dataloaders, filter_and_split, load_data, \
+    nucleotide_encoding
 from gene_family.model import DNA_CNN
 from gene_family.train_helpers import run_model, compute_metrics
 from gene_family.utils import loss_plot, set_random_seed
@@ -34,7 +35,7 @@ for test_split_index in range(n_test_splits):
 
     DEVICE = torch.device('mps' if torch.mps.is_available() else 'cpu')
 
-    model = DNA_CNN(seq_len=max_seq_len, num_classes=num_classes)
+    model = DNA_CNN(seq_len=max_seq_len, num_classes=num_classes, n_vocab_tokens=len(nucleotide_encoding))
     model.to(DEVICE)
 
     train_losses, val_losses, test_split_preds, test_split_probs, test_split_labels = run_model(
@@ -44,8 +45,8 @@ for test_split_index in range(n_test_splits):
         model=model,
         num_classes=num_classes,
         device=DEVICE,
-        lr=0.001,
-        epochs=20,
+        lr=0.0001,
+        epochs=25,
     )
 
     del model
