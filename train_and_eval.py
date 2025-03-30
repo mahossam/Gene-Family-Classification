@@ -3,7 +3,7 @@ import torch
 
 from gene_family.data_process import build_dataloaders, filter_and_split, load_data, \
     nucleotide_encoding
-from gene_family.model import DNA_CNN
+from gene_family.model import DNA_CNN, DNA_Linear
 from gene_family.train_helpers import run_model, compute_metrics
 from gene_family.utils import loss_plot, set_random_seed
 from sklearn.model_selection import train_test_split
@@ -36,6 +36,7 @@ for test_split_index in range(n_test_splits):
     DEVICE = torch.device('mps' if torch.mps.is_available() else 'cpu')
 
     model = DNA_CNN(seq_len=max_seq_len, num_classes=num_classes, n_vocab_tokens=len(nucleotide_encoding))
+    # model = DNA_Linear(seq_len=max_seq_len, num_classes=num_classes, n_vocab_tokens=len(nucleotide_encoding))
     model.to(DEVICE)
 
     train_losses, val_losses, test_split_preds, test_split_probs, test_split_labels = run_model(

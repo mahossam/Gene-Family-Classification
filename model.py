@@ -1,7 +1,19 @@
 # very simple linear model
 from torch import nn
 
+# very simple linear model
+class DNA_Linear(nn.Module):
+    def __init__(self, seq_len, num_classes, n_vocab_tokens=5):
+        super().__init__()
+        self.seq_len = seq_len
+        self.n_vocab_tokens = n_vocab_tokens
+        self.lin = nn.Linear(n_vocab_tokens * seq_len, out_features=num_classes)
 
+    def forward(self, x):
+        # reshape to flatten sequence dimension
+        x = x.view(x.shape[0], self.seq_len * self.n_vocab_tokens)
+        out = self.lin(x)
+        return out
 
 # basic CNN model
 class DNA_CNN(nn.Module):
