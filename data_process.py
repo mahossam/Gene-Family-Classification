@@ -1,6 +1,7 @@
 import random
 
 import numpy as np
+import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 import torch
 
@@ -149,3 +150,19 @@ def build_dataloaders(train_df,
     test_dl = DataLoader(test_ds, batch_size=batch_size)
 
     return train_dl, test_dl
+
+
+def load_data(data_path="./dna_seq_families.csv"):
+    """
+    Load the data from the csv file
+    """
+    # Read in the data
+    df = pd.read_csv(data_path)
+
+    # Remove duplicates
+    df = df.drop_duplicates()
+
+    # Remove empty sequences
+    df = df[df['dna_sequence'].notna()]
+
+    return df
