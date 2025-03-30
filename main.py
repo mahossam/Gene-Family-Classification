@@ -1,21 +1,30 @@
 # if classes are unbalanced, use class_weight='balanced' in the model or do oversampling
 # augmentation ? bidirectional ?
 # windowing / chunking
-from random import random
+import random
 import pandas as pd
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
 
 from gene_family.data_process import one_hot_encode, build_dataloaders, quick_split
-from gene_family.model import DNA_Linear, DNA_CNN
+from gene_family.model import DNA_CNN
+
+# fix random seed for reproducibility
+seed = 42
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(seed)
+if torch.mps.is_available():
+    torch.mps.manual_seed(seed)
+
 
 # Dropouts
 # Augmentations: reverse complement, random crop, random shift
 
 # long input sequences: try chunking and windowing
-
-print(one_hot_encode("AAANNNGTN"))
 
 def load_data():
     """
@@ -30,9 +39,6 @@ def load_data():
     # Remove empty sequences
     df = df[df['dna_sequence'].notna()]
 
-    # One-hot encode the sequences
-    df['one_hot'] = df['dna_sequence'].apply(one_hot_encode)
-
     return df
 
 
@@ -42,7 +48,8 @@ data = load_data()
 full_train_df, test_df = quick_split(data)
 train_df, val_df = quick_split(full_train_df)
 
-train_dl, val_dl = build_dataloaders(train_df, val_df)
+max_seq_len = 8192
+train_dl, val_dl = build_dataloaders(train_df, val_df, max_length=max_seq_len)
 
 
 print("Train:", train_df.shape)
@@ -54,7 +61,7 @@ print("Test:", test_df.shape)
 # | Training and fitting functions |
 # +--------------------------------+
 
-def loss_batch(model, loss_func, xb, yb, opt=None, verbose=False):
+def get_batch_loss(model, loss_func, xb, yb, optimizer=None, verbose=False):
     '''
     Apply loss function to a batch of inputs. If no optimizer
     is provided, skip the back prop step.
@@ -77,13 +84,12 @@ def loss_batch(model, loss_func, xb, yb, opt=None, verbose=False):
         print("yb:", yb.shape)
         print("yb.long:", yb.long().shape)
 
-    loss = loss_func(xb_out, yb.float())  # for MSE/regression
-    # __FOOTNOTE 2__
+    loss = loss_func(xb_out, yb.squeeze(1))
 
-    if opt is not None:  # if opt
+    if optimizer is not None:
         loss.backward()
-        opt.step()
-        opt.zero_grad()
+        optimizer.step()
+        optimizer.zero_grad()
 
     return loss.item(), len(xb)
 
@@ -103,11 +109,11 @@ def train_step(model, train_dl, loss_func, device, opt):
         xb, yb = xb.to(device), yb.to(device)
 
         # provide opt so backprop happens
-        t, n = loss_batch(model, loss_func, xb, yb, opt=opt)
+        loss, batch_size = get_batch_loss(model, loss_func, xb, yb, optimizer=opt)
 
         # collect train loss and batch sizes
-        tl.append(t)
-        ns.append(n)
+        tl.append(loss)
+        ns.append(batch_size)
 
     # average the losses over all batches
     train_loss = np.sum(np.multiply(tl, ns)) / np.sum(ns)
@@ -131,11 +137,11 @@ def val_step(model, val_dl, loss_func, device):
             xb, yb = xb.to(device), yb.to(device)
 
             # Do NOT provide opt here, so backprop does not happen
-            v, n = loss_batch(model, loss_func, xb, yb)
+            loss, batch_size = get_batch_loss(model, loss_func, xb, yb)
 
             # collect val loss and batch sizes
-            vl.append(v)
-            ns.append(n)
+            vl.append(loss)
+            ns.append(batch_size)
 
     # average the losses over all batches
     val_loss = np.sum(np.multiply(vl, ns)) / np.sum(ns)
@@ -169,24 +175,14 @@ def fit(epochs, model, loss_func, opt, train_dl, val_dl, device, patience=1000):
 
 
 def run_model(train_dl, val_dl, model, device,
-              lr=0.01, epochs=50,
-              lossf=None, opt=None
-              ):
+              lr=0.001, epochs=15):
     '''
     Given train and val DataLoaders and a NN model, fit the mode to the training
-    data. By default, use MSE loss and an SGD optimizer
+    data.
     '''
-    # define optimizer
-    if opt:
-        optimizer = opt
-    else:  # if no opt provided, just use SGD
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
-    # define loss function
-    if lossf:
-        loss_func = lossf
-    else:  # if no loss function provided, just use MSE
-        loss_func = torch.nn.MSELoss()
+    loss_func = torch.nn.CrossEntropyLoss()
 
     # run the training loop
     train_losses, val_losses = fit(
@@ -201,27 +197,25 @@ def run_model(train_dl, val_dl, model, device,
     return train_losses, val_losses
 
 
-# use GPU if available
-# DEVICE = torch.device('mps' if torch.mps.is_available() else 'cpu')
-DEVICE = 'cpu'
+DEVICE = torch.device('mps' if torch.mps.is_available() else 'cpu')
+# DEVICE = 'cpu'
 
-# get the sequence length from the first seq in the df
-seq_len = len(train_df['dna_sequence'].values[0])
+seq_len = max_seq_len
 
 # create Linear model object
-model_lin = DNA_Linear(seq_len)
-model_lin.to(DEVICE) # put on GPU
+# model_lin = DNA_Linear(seq_len)
+# model_lin.to(DEVICE) # put on GPU
 
 # run the model with default settings!
-lin_train_losses, lin_val_losses = run_model(
-    train_dl,
-    val_dl,
-    model_lin,
-    DEVICE
-)
+# lin_train_losses, lin_val_losses = run_model(
+#     train_dl,
+#     val_dl,
+#     model_lin,
+#     DEVICE
+# )
 
 
-def quick_loss_plot(data_label_list, loss_type="MSE Loss", sparse_n=0):
+def loss_plot(data_label_list, loss_type="CE Loss"):
     '''
     For each train/test loss trajectory, plot loss by epoch
     '''
@@ -236,13 +230,8 @@ def quick_loss_plot(data_label_list, loss_type="MSE Loss", sparse_n=0):
     plt.show()
 
 
-lin_data_label = (lin_train_losses, lin_val_losses, "Lin")
-quick_loss_plot([lin_data_label])
-
-seq_len = len(train_df['seq'].values[0])
-
 # create Linear model object
-model_cnn = DNA_CNN(seq_len)
+model_cnn = DNA_CNN(seq_len=seq_len, num_classes=data.gene_family.nunique())
 model_cnn.to(DEVICE) # put on GPU
 
 # run the model with default settings!
@@ -254,4 +243,4 @@ cnn_train_losses, cnn_val_losses = run_model(
 )
 
 cnn_data_label = (cnn_train_losses,cnn_val_losses,"CNN")
-quick_loss_plot([lin_data_label,cnn_data_label])
+loss_plot([cnn_data_label])

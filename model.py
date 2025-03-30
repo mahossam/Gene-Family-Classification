@@ -6,12 +6,11 @@ from torch import nn
 #     def __init__(self, seq_len):
 #         super().__init__()
 #         self.seq_len = seq_len
-#         # the 4 is for our one-hot encoded vector length 4!
-#         self.lin = nn.Linear(4 * seq_len, 1)
+#         self.lin = nn.Linear(6 * seq_len, 7)
 #
 #     def forward(self, xb):
 #         # reshape to flatten sequence dimension
-#         xb = xb.view(xb.shape[0], self.seq_len * 4)
+#         xb = xb.view(xb.shape[0], self.seq_len * 6)
 #         # Linear wraps up the weights/bias dot product operations
 #         out = self.lin(xb)
 #         return out
@@ -21,24 +20,27 @@ from torch import nn
 class DNA_CNN(nn.Module):
     def __init__(self,
                  seq_len,
-                 num_filters=32,
-                 kernel_size=3):
+                 num_classes,
+                 num_filters=27,
+                 kernel_size=4,
+                 pool_window=3,
+                 dropout=0.2):
         super().__init__()
         self.seq_len = seq_len
 
         self.conv_net = nn.Sequential(
-            # 4 is for the 4 nucleotides
-            nn.Conv1d(4, num_filters, kernel_size=kernel_size),
-            nn.ReLU(inplace=True),
+            nn.Conv1d(in_channels=6, out_channels=num_filters, kernel_size=kernel_size),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=pool_window),
+            nn.Dropout(dropout),
             nn.Flatten(),
-            nn.Linear(num_filters * (seq_len - kernel_size + 1), 1)
+            nn.LazyLinear(out_features=num_classes),
         )
 
     def forward(self, x):
         # permute to put channel in correct order
-        # (batch_size x 4channel x seq_len)
+        # (batch_size x channel x seq_len)
         x = x.permute(0, 2, 1)
 
-        # print(xb.shape)
         out = self.conv_net(x)
         return out

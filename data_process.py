@@ -79,7 +79,7 @@ class SeqDatasetOHE(Dataset):
 
             # one-hot encode sequences, then stack in a torch tensor
 
-            self.ohe_seqs = torch.stack(
+            self.encoded_seqs = torch.stack(
                 [torch.tensor(one_hot_encode(x)) for x in self.seqs])
             self.labels = torch.tensor(self.labels).unsqueeze(1)
 
@@ -120,7 +120,7 @@ class SeqDatasetOHE(Dataset):
     def __getitem__(self, idx):
         # Given an index, return a tuple of an X with it's associated Y
         # This is called inside DataLoader
-        seq = self.ohe_seqs[idx]
+        seq = self.encoded_seqs[idx]
         label = self.labels[idx]
 
         return seq, label
@@ -130,7 +130,8 @@ def build_dataloaders(train_df,
                       test_df,
                       seq_col='dna_sequence',
                       target_col='gene_family',
-                      batch_size=128,
+                      batch_size=32,
+                      max_length=8192,
                       shuffle=True
                       ):
     '''
@@ -140,8 +141,8 @@ def build_dataloaders(train_df,
     '''
 
     # create Datasets
-    train_ds = SeqDatasetOHE(train_df, seq_col=seq_col, target_col=target_col)
-    test_ds = SeqDatasetOHE(test_df, seq_col=seq_col, target_col=target_col)
+    train_ds = SeqDatasetOHE(train_df, seq_col=seq_col, target_col=target_col, window_size=max_length)
+    test_ds = SeqDatasetOHE(test_df, seq_col=seq_col, target_col=target_col, window_size=max_length)
 
     # Put DataSets into DataLoaders
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=shuffle)
