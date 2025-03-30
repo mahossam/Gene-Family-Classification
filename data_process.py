@@ -54,7 +54,7 @@ def quick_split(df, split_frac=0.8):
     return train_df[cols], test_df[cols]
 
 
-class SeqDatasetOHE(Dataset):
+class DNADataset(Dataset):
     '''
     Dataset for one-hot-encoded sequences
     '''
@@ -69,8 +69,8 @@ class SeqDatasetOHE(Dataset):
         self.window_size = window_size
         self.augment_reverse = augment_reverse
 
-        self.seqs = list(data[seq_col].values)
-        self.labels = list(data[target_col].values)
+        self.seqs = data[seq_col].values.tolist()
+        self.labels = data[target_col].values.tolist()
 
         self.target_col = target_col
 
@@ -110,7 +110,7 @@ class SeqDatasetOHE(Dataset):
         for seq_index, seq in enumerate(self.seqs):
             if len(seq) < self.window_size:
                 pad_len = self.window_size - len(seq)
-                pad = SeqDatasetOHE.pad_symbol * pad_len
+                pad = DNADataset.pad_symbol * pad_len
                 self.seqs[seq_index] = seq + pad
             elif len(seq) > self.window_size:
                 raise ValueError(
@@ -142,8 +142,8 @@ def build_dataloaders(train_df,
     '''
 
     # create Datasets
-    train_ds = SeqDatasetOHE(train_df, seq_col=seq_col, target_col=target_col, window_size=max_length)
-    test_ds = SeqDatasetOHE(test_df, seq_col=seq_col, target_col=target_col, window_size=max_length)
+    train_ds = DNADataset(train_df, seq_col=seq_col, target_col=target_col, window_size=max_length)
+    test_ds = DNADataset(test_df, seq_col=seq_col, target_col=target_col, window_size=max_length)
 
     # Put DataSets into DataLoaders
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=shuffle)

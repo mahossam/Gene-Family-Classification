@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from gene_family.data_process import one_hot_encode, SeqDatasetOHE
+from gene_family.data_process import one_hot_encode, DNADataset
 
 
 def test_one_hot_encode():
@@ -42,7 +42,7 @@ def test_slice_sequences():
     ]
     expected_labels = [1, 1, 3, 2]
 
-    dataset = SeqDatasetOHE(data=test_sequences, window_size=5, run_preprocessing=False)
+    dataset = DNADataset(data=test_sequences, window_size=5, run_preprocessing=False)
     dataset._slice_sequences()
     assert dataset.seqs == expected_sequences
     assert dataset.labels == expected_labels
@@ -61,7 +61,7 @@ def test_pad_sequences():
     ]
     expected_labels = [1, 3, 2]
 
-    dataset = SeqDatasetOHE(data=test_sequences, window_size=5, run_preprocessing=False)
+    dataset = DNADataset(data=test_sequences, window_size=5, run_preprocessing=False)
     dataset._pad_sequences()
     assert dataset.seqs == expected_sequences
     assert dataset.labels == expected_labels
