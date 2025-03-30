@@ -5,13 +5,15 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 import torch
 
-# Dictionary returning one-hot encoding for each nucleotide
-nuc_d = {'A': [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-         'C': [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-         'G': [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-         'T': [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-         'N': [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-         '-': [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],}
+# Dictionary returning one-hot encoding for each nucleotide.
+# The symbol '-' is for padding
+nucleotide_encoding = {'A': [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                       'C': [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                       'G': [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                       'T': [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                       'N': [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                       '-': [0.0, 0.0, 0.0, 0.0, 0.0, 1.0], }
+
 
 def one_hot_encode(seq):
     """
@@ -25,7 +27,7 @@ def one_hot_encode(seq):
             f"Sequence contains chars not in allowed DNA alphabet (ACGTN): {invalid}")
 
     # Create array from nucleotide sequence
-    vec = np.array([nuc_d[x] for x in seq])
+    vec = np.array([nucleotide_encoding[x] for x in seq])
 
     return vec
 
@@ -99,7 +101,6 @@ class DNADataset(Dataset):
         self.seqs = sliced_seqs
         self.labels = slices_labels
 
-
     def _pad_sequences(self):
         """
         Pad the list of sequences to the max length of window_size.
@@ -116,7 +117,8 @@ class DNADataset(Dataset):
                 raise ValueError(
                     f"Sequence length {len(seq)} exceeds max length {self.window_size}")
 
-    def __len__(self): return len(self.seqs)
+    def __len__(self):
+        return len(self.seqs)
 
     def __getitem__(self, idx):
         # Given an index, return a tuple of an X with it's associated Y
@@ -142,8 +144,10 @@ def build_dataloaders(train_df,
     '''
 
     # create Datasets
-    train_ds = DNADataset(train_df, seq_col=seq_col, target_col=target_col, window_size=max_length)
-    test_ds = DNADataset(test_df, seq_col=seq_col, target_col=target_col, window_size=max_length)
+    train_ds = DNADataset(train_df, seq_col=seq_col, target_col=target_col,
+                          window_size=max_length)
+    test_ds = DNADataset(test_df, seq_col=seq_col, target_col=target_col,
+                         window_size=max_length)
 
     # Put DataSets into DataLoaders
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=shuffle)

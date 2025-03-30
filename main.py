@@ -21,17 +21,18 @@ print("Test:", test_df.shape)
 
 DEVICE = torch.device('mps' if torch.mps.is_available() else 'cpu')
 
-seq_len = max_seq_len
-
-
-model_cnn = DNA_CNN(seq_len=seq_len, num_classes=data.gene_family.nunique())
-model_cnn.to(DEVICE)  # put on GPU
+num_classes = data.gene_family.nunique()
+model_cnn = DNA_CNN(seq_len=max_seq_len, num_classes=num_classes)
+model_cnn.to(DEVICE)
 
 train_losses, cnn_val_losses = run_model(
-    train_dl,
-    val_dl,
-    model_cnn,
-    DEVICE
+    train_dl=train_dl,
+    val_dl=val_dl,
+    model=model_cnn,
+    num_classes=num_classes,
+    device=DEVICE,
+    lr=0.001,
+    epochs=20,
 )
 
 cnn_data_label = (train_losses, cnn_val_losses, "CNN")

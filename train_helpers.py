@@ -1,96 +1,99 @@
+from typing import Dict
+
 import numpy as np
 import torch
+from torchmetrics import Accuracy, F1Score, Precision, Recall, MetricCollection
 
 
-def get_batch_loss(model, loss_func, xb, yb, optimizer=None, verbose=False):
+def compute_metrics(y_pred, y_true, y_probs, num_classes) -> Dict[str, float]:
+    metrics = MetricCollection(
+        {
+            "accuracy": Accuracy(task="multiclass", num_classes=num_classes, average="macro"),
+            "f1": F1Score(task="multiclass",num_classes=num_classes, average="macro"),
+            "precision": Precision(task="multiclass",num_classes=num_classes, average="macro"),
+            "recall": Recall(task="multiclass", num_classes=num_classes, average="macro"),
+        }
+    )
+    metrics.update(torch.tensor(y_pred, dtype=torch.float32), torch.tensor(y_true, dtype=torch.float32))
+    metrics_computed = metrics.compute()
+    metrics_computed = {k: v.item() for k, v in metrics_computed.items()}
+    return metrics_computed
+
+def train_batch(model, loss_func, x, y, optimizer=None):
     '''
     Apply loss function to a batch of inputs. If no optimizer
     is provided, skip the back prop step.
     '''
-    if verbose:
-        print('loss batch ****')
-        print("xb shape:", xb.shape)
-        print("yb shape:", yb.shape)
-        print("yb shape:", yb.squeeze(1).shape)
-        # print("yb",yb)
-
     # get the batch output from the model given your input batch
     # ** This is the model's prediction for the y labels! **
-    xb_out = model(xb.float())
+    logits = model(x.float())
 
-    if verbose:
-        print("model out pre loss", xb_out.shape)
-        # print('xb_out', xb_out)
-        print("xb_out:", xb_out.shape)
-        print("yb:", yb.shape)
-        print("yb.long:", yb.long().shape)
+    loss = loss_func(logits, y.squeeze(1))
 
-    loss = loss_func(xb_out, yb.squeeze(1))
+    # calculate the predicted y labels
+    predictions = torch.argmax(logits, dim=1).detach().cpu().numpy()
+    probabilities = torch.softmax(logits, dim=1).detach().cpu().numpy()
 
     if optimizer is not None:
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
 
-    return loss.item(), len(xb)
+    return loss.item(), len(x), predictions, probabilities
 
 
-def train_step(model, train_dl, loss_func, device, opt):
+def train_step(model, train_dl, loss_func, device, optimizer):
     '''
-    Execute 1 set of batched training within an epoch
+    Execute 1 set of batched training within an epoch.
     '''
-    # Set model to Training mode
     model.train()
-    tl = []  # train losses
-    ns = []  # batch sizes, n
+    losses = []  # train losses
+    batch_sizes = []  # batch sizes, n
 
-    # loop through train DataLoader
-    for xb, yb in train_dl:
-        # put on GPU
-        xb, yb = xb.to(device), yb.to(device)
+    for x_batch, y_batch in train_dl:
+        x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
-        # provide opt so backprop happens
-        loss, batch_size = get_batch_loss(model, loss_func, xb, yb, optimizer=opt)
+        loss, batch_size, _, _ = train_batch(model, loss_func, x_batch, y_batch, optimizer=optimizer)
 
-        # collect train loss and batch sizes
-        tl.append(loss)
-        ns.append(batch_size)
+        losses.append(loss)
+        batch_sizes.append(batch_size)
 
     # average the losses over all batches
-    train_loss = np.sum(np.multiply(tl, ns)) / np.sum(ns)
+    train_loss = np.sum(np.multiply(losses, batch_sizes)) / np.sum(batch_sizes)
 
     return train_loss
 
 
-def val_step(model, val_dl, loss_func, device):
+def eval_step(model, val_dl, loss_func, device):
     '''
-    Execute 1 set of batched validation within an epoch
+    Execute 1 set of batched evaluation.
     '''
-    # Set model to Evaluation mode
     model.eval()
     with torch.no_grad():
-        vl = []  # val losses
-        ns = []  # batch sizes, n
+        losses = []  # val losses
+        batch_sizes = []  # batch sizes, n
+        preds = []
+        probs = []
+        true_labels = []
 
-        # loop through validation DataLoader
-        for xb, yb in val_dl:
-            # put on GPU
-            xb, yb = xb.to(device), yb.to(device)
+        for x_batch, y_batch in val_dl:
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
-            # Do NOT provide opt here, so backprop does not happen
-            loss, batch_size = get_batch_loss(model, loss_func, xb, yb)
+            loss, batch_size, batch_preds, batch_probs = train_batch(model, loss_func, x_batch, y_batch, optimizer=None)
 
-            # collect val loss and batch sizes
-            vl.append(loss)
-            ns.append(batch_size)
+            losses.append(loss)
+            batch_sizes.append(batch_size)
+            true_labels.append(y_batch.squeeze(1).detach().cpu().numpy())
+            preds.append(batch_preds)
+            probs.append(batch_probs)
 
     # average the losses over all batches
-    val_loss = np.sum(np.multiply(vl, ns)) / np.sum(ns)
+    val_loss = np.sum(np.multiply(losses, batch_sizes)) / np.sum(batch_sizes)
 
-    return val_loss
+    return val_loss, np.concatenate(preds), np.concatenate(probs), np.concatenate(true_labels)
 
 
-def fit(epochs, model, loss_func, opt, train_dl, val_dl, device, patience=1000):
+def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, device, patience=1000):
     '''
     Fit the model params to the training data, eval on unseen data.
     Loop for a number of epochs and keep train of train and val losses
@@ -103,36 +106,39 @@ def fit(epochs, model, loss_func, opt, train_dl, val_dl, device, patience=1000):
     # loop through epochs
     for epoch in range(epochs):
         # take a training step
-        train_loss = train_step(model, train_dl, loss_func, device, opt)
+        train_loss = train_step(model, train_dl, loss_func, device, optimizer)
         train_losses.append(train_loss)
 
         # take a validation step
-        val_loss = val_step(model, val_dl, loss_func, device)
+        val_loss, epoch_preds, epoch_probs, epoch_labels = eval_step(model, val_dl, loss_func, device)
+
+        # calculate the accuracy and classification metrics from the predictions and probs
+        metrics = compute_metrics(y_pred=epoch_preds, y_true=epoch_labels, y_probs=epoch_probs, num_classes=num_classes)
+
         val_losses.append(val_loss)
 
-        print(f"E{epoch} | train loss: {train_loss:.3f} | val loss: {val_loss:.3f}")
+        print(f"E{epoch} | train loss: {train_loss:.3f} | val loss: {val_loss:.3f} | acc. {metrics['accuracy']:.3f} | f1: {metrics['f1']:.3f}")
 
     return train_losses, val_losses
 
 
-def run_model(train_dl, val_dl, model, device,
-              lr=0.001, epochs=15):
+def run_model(train_dl, val_dl, model, num_classes, device, lr=0.001, epochs=30):
     '''
     Given train and val DataLoaders and a NN model, fit the mode to the training
     data.
     '''
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
-
     loss_func = torch.nn.CrossEntropyLoss()
 
     # run the training loop
     train_losses, val_losses = fit(
-        epochs,
-        model,
-        loss_func,
-        optimizer,
-        train_dl,
-        val_dl,
-        device)
+        epochs=epochs,
+        model=model,
+        loss_func=loss_func,
+        optimizer=optimizer,
+        train_dl=train_dl,
+        val_dl=val_dl,
+        num_classes=num_classes,
+        device=device)
 
     return train_losses, val_losses
