@@ -9,10 +9,10 @@ class DNA_CNN(nn.Module):
                  seq_len,
                  num_classes,
                  n_vocab_tokens=5,
-                 num_filters=16,
-                 kernel_size=24,
-                 pool_window=2,
-                 dropout=0.5):
+                 num_filters=27, # 27
+                 kernel_size=24, # 24
+                 pool_window=3,
+                 dropout=0.6):
         super().__init__()
         self.seq_len = seq_len
 
@@ -26,7 +26,6 @@ class DNA_CNN(nn.Module):
         )
 
     def forward(self, x):
-        # permute to put channel in correct order
         # (batch_size x channel x seq_len)
         x = x.permute(0, 2, 1)
 

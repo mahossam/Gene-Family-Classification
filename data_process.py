@@ -174,8 +174,6 @@ def build_dataloaders(train_data,
     details, put them into custom SeqDatasetOHE() objects.
     Give the Datasets to the DataLoaders and return.
     '''
-
-    # create Datasets
     train_ds = DNADataset(train_data, seq_col=seq_col, target_col=target_col,
                           window_size=max_length, augment_reverse=False)
     val_ds = DNADataset(val_data, seq_col=seq_col, target_col=target_col,

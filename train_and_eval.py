@@ -45,8 +45,8 @@ for test_split_index in range(n_test_splits):
         model=model,
         num_classes=num_classes,
         device=DEVICE,
-        lr=0.0001,
-        epochs=25,
+        lr=0.001,
+        epochs=12,
     )
 
     del model
