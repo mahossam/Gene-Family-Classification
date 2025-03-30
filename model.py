@@ -2,29 +2,15 @@
 from torch import nn
 
 
-# class DNA_Linear(nn.Module):
-#     def __init__(self, seq_len):
-#         super().__init__()
-#         self.seq_len = seq_len
-#         self.lin = nn.Linear(6 * seq_len, 7)
-#
-#     def forward(self, xb):
-#         # reshape to flatten sequence dimension
-#         xb = xb.view(xb.shape[0], self.seq_len * 6)
-#         # Linear wraps up the weights/bias dot product operations
-#         out = self.lin(xb)
-#         return out
-
-
 # basic CNN model
 class DNA_CNN(nn.Module):
     def __init__(self,
                  seq_len,
                  num_classes,
-                 num_filters=27,
-                 kernel_size=4,
+                 num_filters=32,
+                 kernel_size=24,
                  pool_window=3,
-                 dropout=0.2):
+                 dropout=0.5):
         super().__init__()
         self.seq_len = seq_len
 
@@ -44,3 +30,4 @@ class DNA_CNN(nn.Module):
 
         out = self.conv_net(x)
         return out
+

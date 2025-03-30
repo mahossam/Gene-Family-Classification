@@ -110,19 +110,25 @@ def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, devi
         train_losses.append(train_loss)
 
         # take a validation step
-        val_loss, epoch_preds, epoch_probs, epoch_labels = eval_step(model, val_dl, loss_func, device)
-
-        # calculate the accuracy and classification metrics from the predictions and probs
-        metrics = compute_metrics(y_pred=epoch_preds, y_true=epoch_labels, y_probs=epoch_probs, num_classes=num_classes)
+        val_loss, summary_message, _, _, _ = get_eval_summary(model=model, val_dl=val_dl, loss_func=loss_func, num_classes=num_classes, device=device)
+        print(f"E{epoch} | train loss: {train_loss:.3f} | {summary_message}")
 
         val_losses.append(val_loss)
-
-        print(f"E{epoch} | train loss: {train_loss:.3f} | val loss: {val_loss:.3f} | acc. {metrics['accuracy']:.3f} | f1: {metrics['f1']:.3f}")
 
     return train_losses, val_losses
 
 
-def run_model(train_dl, val_dl, model, num_classes, device, lr=0.001, epochs=30):
+def get_eval_summary(model, val_dl, loss_func, num_classes, device):
+    val_loss, epoch_preds, epoch_probs, epoch_labels = eval_step(model, val_dl,
+                                                                 loss_func, device)
+    # calculate the accuracy and classification metrics from the predictions and probs
+    metrics = compute_metrics(y_pred=epoch_preds, y_true=epoch_labels,
+                              y_probs=epoch_probs, num_classes=num_classes)
+    summary_message = f"val loss: {val_loss:.3f} | acc. {metrics['accuracy']:.3f} | f1: {metrics['f1']:.3f}"
+    return val_loss, summary_message, epoch_preds, epoch_probs, epoch_labels
+
+
+def run_model(train_dl, val_dl, test_dl, model, num_classes, device, lr=0.001, epochs=30):
     '''
     Given train and val DataLoaders and a NN model, fit the mode to the training
     data.
@@ -141,4 +147,7 @@ def run_model(train_dl, val_dl, model, num_classes, device, lr=0.001, epochs=30)
         num_classes=num_classes,
         device=device)
 
-    return train_losses, val_losses
+    # run the evaluation on the test set
+    _, _, test_preds, test_probs, test_labels = get_eval_summary(model=model, val_dl=test_dl, loss_func=loss_func, num_classes=num_classes, device=device)
+
+    return train_losses, val_losses, test_preds, test_probs, test_labels

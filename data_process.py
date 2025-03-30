@@ -1,4 +1,5 @@
 import random
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -13,6 +14,53 @@ nucleotide_encoding = {'A': [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                        'T': [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
                        'N': [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
                        '-': [0.0, 0.0, 0.0, 0.0, 0.0, 1.0], }
+
+def load_data(data_path="./dna_seq_families.csv"):
+    """
+    Load the data from the csv file
+    """
+    # Read in the data
+    df = pd.read_csv(data_path)
+
+    # Remove duplicates
+    df = df.drop_duplicates()
+
+    # Remove empty sequences
+    df = df[df['dna_sequence'].notna()]
+
+    return df
+
+def filter_and_split(
+    data: pd.DataFrame, random_seed: int, test_split_index: int, n_test_splits: int
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Split into train and test sets.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The data containing all the variants.
+    random_seed : int
+        The random seed to use for the split.
+    test_split_index : int
+        The index of the split to use for the test set.
+    n_test_splits : int
+        The number of test splits to split data into.
+
+    Returns
+    -------
+    Tuple[pd.DataFrame, pd.DataFrame]
+        The train and test data.
+    """
+    # make sure the random seed is set
+
+    data.loc[:, "fold_index"] = np.random.randint(
+        low=0, high=n_test_splits, size=len(data)
+    )
+
+    train_data = data[data["fold_index"] != test_split_index]
+    test_data = data[data["fold_index"] == test_split_index]
+
+    return train_data, test_data
 
 
 def one_hot_encode(seq):
@@ -30,30 +78,6 @@ def one_hot_encode(seq):
     vec = np.array([nucleotide_encoding[x] for x in seq])
 
     return vec
-
-
-def quick_split(df, split_frac=0.8):
-    '''
-    Given a df of samples, randomly split indices between
-    train and test at the desired fraction
-    '''
-    cols = df.columns  # original columns, use to clean up reindexed cols
-    df = df.reset_index()
-
-    # shuffle indices
-    idxs = list(range(df.shape[0]))
-    random.shuffle(idxs)
-
-    # split shuffled index list by split_frac
-    split = int(len(idxs) * split_frac)
-    train_idxs = idxs[:split]
-    test_idxs = idxs[split:]
-
-    # split dfs and return
-    train_df = df[df.index.isin(train_idxs)]
-    test_df = df[df.index.isin(test_idxs)]
-
-    return train_df[cols], test_df[cols]
 
 
 class DNADataset(Dataset):
@@ -77,6 +101,14 @@ class DNADataset(Dataset):
         self.target_col = target_col
 
         if run_preprocessing:
+            if self.augment_reverse:
+                # augment the dataset with reverse complement sequences
+                complement_table = str.maketrans("ACGTacgt", "TGCAtgca")
+                augmented_seqs = [seq.translate(complement_table)[::-1] for seq in self.seqs]
+                augmented_labels = [label for label in self.labels]
+                self.seqs += augmented_seqs
+                self.labels += augmented_labels
+
             self._slice_sequences()
             self._pad_sequences()
 
@@ -129,12 +161,13 @@ class DNADataset(Dataset):
         return seq, label
 
 
-def build_dataloaders(train_df,
-                      test_df,
+def build_dataloaders(train_data,
+                      val_data,
+                      test_data,
+                      max_length,
                       seq_col='dna_sequence',
                       target_col='gene_family',
                       batch_size=32,
-                      max_length=8192,
                       shuffle=True
                       ):
     '''
@@ -144,29 +177,16 @@ def build_dataloaders(train_df,
     '''
 
     # create Datasets
-    train_ds = DNADataset(train_df, seq_col=seq_col, target_col=target_col,
-                          window_size=max_length)
-    test_ds = DNADataset(test_df, seq_col=seq_col, target_col=target_col,
-                         window_size=max_length)
+    train_ds = DNADataset(train_data, seq_col=seq_col, target_col=target_col,
+                          window_size=max_length, augment_reverse=True)
+    val_ds = DNADataset(val_data, seq_col=seq_col, target_col=target_col,
+                         window_size=max_length, augment_reverse=False)
+    test_ds = DNADataset(test_data, seq_col=seq_col, target_col=target_col,
+                          window_size=max_length, augment_reverse=False)
 
     # Put DataSets into DataLoaders
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=shuffle)
+    val_dl = DataLoader(val_ds, batch_size=batch_size)
     test_dl = DataLoader(test_ds, batch_size=batch_size)
 
-    return train_dl, test_dl
-
-
-def load_data(data_path="./dna_seq_families.csv"):
-    """
-    Load the data from the csv file
-    """
-    # Read in the data
-    df = pd.read_csv(data_path)
-
-    # Remove duplicates
-    df = df.drop_duplicates()
-
-    # Remove empty sequences
-    df = df[df['dna_sequence'].notna()]
-
-    return df
+    return train_dl, val_dl, test_dl
