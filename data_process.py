@@ -4,15 +4,20 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 import torch
+from torch.nn.functional import one_hot
 
 # Dictionary returning one-hot encoding for each nucleotide.
 # The symbol '-' is for padding
-nucleotide_encoding = {'A': [1.0, 0.0, 0.0, 0.0, 0.0],
-                       'C': [0.0, 1.0, 0.0, 0.0, 0.0],
-                       'G': [0.0, 0.0, 1.0, 0.0, 0.0],
-                       'T': [0.0, 0.0, 0.0, 1.0, 0.0],
-                       'N': [0.0, 0.0, 0.0, 0.0, 0.0]}
+# nucleotide_encoding = {'A': [1.0, 0.0, 0.0, 0.0, 0.0],
+#                        'C': [0.0, 1.0, 0.0, 0.0, 0.0],
+#                        'G': [0.0, 0.0, 1.0, 0.0, 0.0],
+#                        'T': [0.0, 0.0, 0.0, 1.0, 0.0],
+#                        'N': [0.0, 0.0, 0.0, 0.0, 0.0]}
+all_kmers = set()
+kmers_dict = {}
 
+def getKmers(sequence, size=3):
+    return [sequence[x:x+size].upper() for x in range(len(sequence) - size + 1)]
 
 def load_data(data_path="./dna_seq_families.csv"):
     """
@@ -26,6 +31,32 @@ def load_data(data_path="./dna_seq_families.csv"):
 
     # Remove empty sequences
     df = df[df['dna_sequence'].notna()]
+
+    df['words'] = df.apply(lambda x: getKmers(x['dna_sequence'], size=3), axis=1)
+    df["in_string"] = df["words"].apply(lambda x: ' '.join(x))
+    # df["dna_sequence_copy"] = df["dna_sequence"]
+    # df["dna_sequence"] = df["in_string"]
+
+    # extract all unique kmers in the column words. split the string by space to get the kmers
+    # and convert to a set to remove duplicates
+
+    def extract_kmers(sequence):
+        return set(sequence)
+
+    unique_kmers = df["words"].apply(lambda x: extract_kmers(x))
+    # concatenate all sets in the list of set unique_kmers
+
+    global all_kmers
+    # generate all possible k-mers from the bases A, C, G, T, N
+    for k1 in ['A', 'C', 'G', 'T', 'N']:
+        for k2 in ['A', 'C', 'G', 'T', 'N']:
+            for k3 in ['A', 'C', 'G', 'T', 'N']:
+                all_kmers = all_kmers.union([f"{k1}{k2}{k3}"])
+
+    # build a dictionary to map kmers to their index
+    global kmers_dict
+    kmers_dict.update({kmer: i for i, kmer in enumerate(all_kmers)})
+    kmers_dict.update({"<unk>": len(all_kmers)})
 
     return df
 
@@ -66,14 +97,25 @@ def one_hot_encode(seq):
     Given a DNA sequence, return its one-hot encoding
     """
     # Make sure seq has only allowed bases
-    allowed = set("ACTGN-")
-    if not set(seq).issubset(allowed):
-        invalid = set(seq) - allowed
-        raise ValueError(
-            f"Sequence contains chars not in allowed DNA alphabet (ACGTN): {invalid}")
+    # allowed = set("ACTGN-")
+    # if not set(seq).issubset(allowed):
+    #     invalid = set(seq) - allowed
+    #     raise ValueError(
+    #         f"Sequence contains chars not in allowed DNA alphabet (ACGTN): {invalid}")
 
     # Create array from nucleotide sequence
-    vec = np.array([nucleotide_encoding[x] for x in seq])
+    # vec = np.array([nucleotide_encoding[x] for x in seq])
+
+    # get the kmers from the sequence
+    seq_kmers = getKmers(seq, size=3)
+
+    global kmers_dict
+    # get the kmer index for each kmer in the sequence
+    kmer_indices = [kmers_dict.get(kmer, "<unk>") for kmer in seq_kmers]
+
+    # create a one-hot encoding for each kmer index
+    vec = np.array(one_hot(torch.tensor(kmer_indices), num_classes=len(kmers_dict)))
+    # vec = np.array(kmer_indices)
 
     return vec
 
@@ -109,13 +151,12 @@ class DNADataset(Dataset):
                 self.labels += augmented_labels
 
             self._slice_sequences()
+            print(f"# of seqs after slicing = {len(self.seqs)}")
             self._pad_sequences()
 
             # one-hot encode sequences, then stack in a torch tensor
 
-            self.encoded_seqs = torch.stack(
-                [torch.tensor(one_hot_encode(x)) for x in self.seqs]).to(torch.float32)
-            self.labels = torch.tensor(self.labels).unsqueeze(1).to(torch.float32)
+        self.labels = torch.tensor(self.labels).unsqueeze(1).to(torch.float32)
 
     def _slice_sequences(self):
         """
@@ -124,10 +165,22 @@ class DNADataset(Dataset):
         sliced_seqs = []
         slices_labels = []
         for seq_index, seq in enumerate(self.seqs):
-            for i in range(0, len(seq), self.window_size):
-                window = seq[i:i + self.window_size]
-                sliced_seqs.append(window)
-                slices_labels.append(self.labels[seq_index])
+            # randomly sample a position that is less than the length of the sequence - window size
+            sliced_seqs.append(seq[:self.window_size])
+            slices_labels.append(self.labels[seq_index])
+
+            # if len(seq) > self.window_size:
+            #     for _ in range(3):
+            #         rand_start = np.random.randint(low=0, high=len(seq) - self.window_size)
+            #         sliced_seqs.append(seq[rand_start:(rand_start + self.window_size)])
+            #         slices_labels.append(self.labels[seq_index])
+
+            # for i in range(0, len(seq), self.window_size):
+            #     # skip the last window
+            #     if (len(seq) - i) >= self.window_size:
+            #         window = seq[i:i + self.window_size]
+            #         sliced_seqs.append(window)
+            #         slices_labels.append(self.labels[seq_index])
 
         self.seqs = sliced_seqs
         self.labels = slices_labels
@@ -154,10 +207,11 @@ class DNADataset(Dataset):
     def __getitem__(self, idx):
         # Given an index, return a tuple of an X with it's associated Y
         # This is called inside DataLoader
-        seq = self.encoded_seqs[idx]
+        encoded_seqs = torch.tensor(one_hot_encode(self.seqs[idx])).to(torch.float32)
+        # seq = self.encoded_seqs[idx]
         label = self.labels[idx]
 
-        return seq, label
+        return encoded_seqs, label
 
 
 def build_dataloaders(train_data,

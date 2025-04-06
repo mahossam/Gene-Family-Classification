@@ -34,7 +34,7 @@ def train_batch(model, loss_func, x, y, optimizer=None):
     # ** This is the model's prediction for the y labels! **
     logits = model(x.float())
 
-    loss = loss_func(logits, y.squeeze(1))
+    loss = loss_func(logits, y.squeeze(1).to(torch.long))
 
     # calculate the predicted y labels
     predictions = torch.argmax(logits, dim=1).detach().cpu().numpy()
@@ -120,13 +120,19 @@ def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, devi
         train_loss = train_step(model, train_dl, loss_func, device, optimizer)
         train_losses.append(train_loss)
 
+        _, train_summary, _, _, _ = get_eval_summary(model=model, val_dl=train_dl,
+                                                    loss_func=loss_func,
+                                                    num_classes=num_classes,
+                                                    device=device)
+        print(f"E{epoch} | Train loss: {train_loss:.3f} | metrics: {train_summary}")
+
         # take a validation step
         val_loss, summary_message, _, _, _ = get_eval_summary(model=model,
                                                               val_dl=val_dl,
                                                               loss_func=loss_func,
                                                               num_classes=num_classes,
                                                               device=device)
-        print(f"E{epoch} | Val: {summary_message}")
+        print(f"-------- | Val: {summary_message}")
 
         val_losses.append(val_loss)
 
@@ -150,6 +156,7 @@ def run_model(train_dl, val_dl, test_dl, model, num_classes, device, lr=0.001,
     Given train and val DataLoaders and a NN model, fit the mode to the training
     data.
     '''
+    # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     loss_func = torch.nn.CrossEntropyLoss()
 

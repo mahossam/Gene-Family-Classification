@@ -1,11 +1,11 @@
 import numpy as np
 import torch
 
-from gene_family.data_process import build_dataloaders, filter_and_split, load_data, \
-    nucleotide_encoding
-from gene_family.model import DNA_CNN, DNA_Linear
-from gene_family.train_helpers import run_model, compute_metrics
-from gene_family.utils import loss_plot, set_random_seed
+from data_process import build_dataloaders, filter_and_split, load_data, kmers_dict
+from gene_family.model import DNA_CNN_LSTM
+from model import DNA_CNN, DNA_Linear, DNA_LSTM
+from train_helpers import run_model, compute_metrics
+from utils import loss_plot, set_random_seed
 from sklearn.model_selection import train_test_split
 
 if __name__ == "__main__":
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     set_random_seed(random_seed)
 
     data = load_data()
-    max_seq_len = 8192
+    max_seq_len = 512
     num_classes = data.gene_family.nunique()
     print(f"# of gene families = {num_classes}")
     n_test_splits = 5
@@ -29,7 +29,7 @@ if __name__ == "__main__":
                                                       random_seed=random_seed,
                                                       test_split_index=test_split_index,
                                                       n_test_splits=n_test_splits)
-        train_data, val_data = train_test_split(full_train_data, test_size=0.2,
+        train_data, val_data = train_test_split(full_train_data, test_size=0.1,
                                                 stratify=full_train_data.gene_family.values,
                                                 shuffle=True, random_state=random_seed)
 
@@ -44,9 +44,10 @@ if __name__ == "__main__":
 
         DEVICE = torch.device('mps' if torch.mps.is_available() else 'cpu')
 
-        # model = DNA_Linear(seq_len=max_seq_len, num_classes=num_classes, n_vocab_tokens=len(nucleotide_encoding))
-        model = DNA_CNN(seq_len=max_seq_len, num_classes=num_classes,
-                        n_vocab_tokens=len(nucleotide_encoding))
+        # model = DNA_Linear(seq_len=max_seq_len-2, num_classes=num_classes, n_vocab_tokens=len(kmers_dict))
+        # model = DNA_CNN(seq_len=max_seq_len-2, num_classes=num_classes,
+        #                 n_vocab_tokens=len(kmers_dict))
+        model = DNA_CNN_LSTM(seq_len=max_seq_len-2, num_classes=num_classes, n_vocab_tokens=len(kmers_dict))
         model.to(DEVICE)
 
         train_losses, val_losses, test_split_preds, test_split_probs, test_split_labels = run_model(
@@ -57,7 +58,7 @@ if __name__ == "__main__":
             num_classes=num_classes,
             device=DEVICE,
             lr=0.001,
-            epochs=12,
+            epochs=20,
         )
 
         del model
