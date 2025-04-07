@@ -111,10 +111,11 @@ def one_hot_encode(seq):
 
     global kmers_dict
     # get the kmer index for each kmer in the sequence
-    kmer_indices = [kmers_dict.get(kmer, "<unk>") for kmer in seq_kmers]
+    kmer_indices = [kmers_dict.get(kmer, len(all_kmers)) for kmer in seq_kmers]
 
     # create a one-hot encoding for each kmer index
     vec = np.array(one_hot(torch.tensor(kmer_indices), num_classes=len(kmers_dict)))
+
     # vec = np.array(kmer_indices)
 
     return vec

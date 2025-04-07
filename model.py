@@ -28,7 +28,6 @@ class DNA_CNN(nn.Module):
                  dropout=0.6):
         super().__init__()
         self.seq_len = seq_len
-        # self.encoder = nn.Embedding(num_embeddings=n_vocab_tokens, embedding_dim=num_filters)
 
         self.conv_net = nn.Sequential(
             nn.Conv1d(in_channels=n_vocab_tokens, out_channels=num_filters, kernel_size=kernel_size),
@@ -40,6 +39,37 @@ class DNA_CNN(nn.Module):
         )
 
     def forward(self, x):
+        # (batch_size x channel x seq_len)
+        x = x.permute(0, 2, 1)
+        out = self.conv_net(x)
+        return out
+
+class DNA_EMBED_CNN(nn.Module):
+    def __init__(self,
+                 seq_len,
+                 num_classes,
+                 n_vocab_tokens=5,
+                 num_filters=24, # 27
+                 kernel_size=24, # 24
+                 pool_window=2,
+                 dropout=0.6):
+        super().__init__()
+        self.seq_len = seq_len
+
+        embedding_dim = 256
+        self.encoder = nn.Embedding(num_embeddings=n_vocab_tokens, embedding_dim=embedding_dim)
+
+        self.conv_net = nn.Sequential(
+            nn.Conv1d(in_channels=embedding_dim, out_channels=num_filters, kernel_size=kernel_size),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=pool_window),
+            nn.Dropout(dropout),
+            nn.Flatten(),
+            nn.LazyLinear(out_features=num_classes),
+        )
+
+    def forward(self, x):
+        x= self.encoder(x.to(torch.int64))
         # (batch_size x channel x seq_len)
         x = x.permute(0, 2, 1)
 
@@ -86,11 +116,10 @@ class DNA_CNN_LSTM(nn.Module):
             nn.MaxPool1d(kernel_size=pool_window),
             nn.Dropout(dropout)
         )
-        # self.encoder_2 = nn.LSTM(input_size=num_filters, hidden_size=128, bidirectional=True, batch_first=True)
-        # self.dropout_2 = nn.Dropout(dropout)
+        self.encoder_2 = nn.LSTM(input_size=num_filters, hidden_size=128, bidirectional=True, batch_first=True)
+        self.dropout_2 = nn.Dropout(dropout)
 
         self.ffd = nn.Sequential(
-            nn.Flatten(),
             nn.LazyLinear(out_features=num_classes),
         )
 
@@ -101,11 +130,13 @@ class DNA_CNN_LSTM(nn.Module):
         x = self.encoder_1(x)
 
         # (batch_size x seq_len x channel)
-        # x = x.permute(0, 2, 1)
-        # x, _ = self.encoder_2(x)
-        # x = self.dropout_2(x)
+        x = x.permute(0, 2, 1)
+        x, _ = self.encoder_2(x)
+        x = self.dropout_2(x)
 
-        # x = x[:, -1, :]
-
+        x = x[:, -1, :]
         out = self.ffd(x)
         return out
+
+# class DNA_CNN_TRANSFORMER(nn.Module):
+#     def __init__(self):
