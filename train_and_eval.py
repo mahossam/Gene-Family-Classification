@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 from data_process import build_dataloaders, filter_and_split, load_data, kmers_dict
+from model import DNA_CNN_TRANSFORMER
 from model import DNA_CNN_LSTM
 from model import DNA_CNN, DNA_Linear, DNA_LSTM
 from train_helpers import run_model, compute_metrics
@@ -47,6 +48,8 @@ if __name__ == "__main__":
         # model = DNA_Linear(seq_len=max_seq_len-2, num_classes=num_classes, n_vocab_tokens=len(kmers_dict))
         model = DNA_CNN(seq_len=max_seq_len-2, num_classes=num_classes,
                         n_vocab_tokens=len(kmers_dict))
+        # model = DNA_CNN_TRANSFORMER(seq_len=max_seq_len - 2, num_classes=num_classes,
+        #                 n_vocab_tokens=len(kmers_dict))
         # model = DNA_CNN_LSTM(seq_len=max_seq_len-2, num_classes=num_classes, n_vocab_tokens=len(kmers_dict))
         model.to(DEVICE)
 

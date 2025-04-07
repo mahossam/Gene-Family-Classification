@@ -8,9 +8,14 @@ class DNA_Linear(nn.Module):
         super().__init__()
         self.seq_len = seq_len
         self.n_vocab_tokens = n_vocab_tokens
-        self.lin = nn.Linear(n_vocab_tokens * seq_len, out_features=num_classes)
+        # self.embedding_dim = 32
+        # self.embed = nn.Embedding(num_embeddings=n_vocab_tokens,
+        #                             embedding_dim=self.embedding_dim)
+        self.lin = nn.Linear(self.n_vocab_tokens * seq_len, out_features=num_classes)
 
     def forward(self, x):
+        # x = self.embed(x.to(torch.int64))
+
         # reshape to flatten sequence dimension
         x = x.view(x.shape[0], self.seq_len * self.n_vocab_tokens)
         out = self.lin(x)
@@ -22,10 +27,10 @@ class DNA_CNN(nn.Module):
                  seq_len,
                  num_classes,
                  n_vocab_tokens=5,
-                 num_filters=24, # 27
+                 num_filters=32, # 27
                  kernel_size=24, # 24
-                 pool_window=3,
-                 dropout=0.6):
+                 pool_window=4,
+                 dropout=0.4):
         super().__init__()
         self.seq_len = seq_len
 
@@ -138,5 +143,49 @@ class DNA_CNN_LSTM(nn.Module):
         out = self.ffd(x)
         return out
 
-# class DNA_CNN_TRANSFORMER(nn.Module):
-#     def __init__(self):
+class DNA_CNN_TRANSFORMER(nn.Module):
+    def __init__(self,
+                 seq_len,
+                 num_classes,
+                 n_vocab_tokens=5,
+                 num_filters=32, # 27
+                 kernel_size=24, # 24
+                 pool_window=3,
+                 dropout=0.6):
+        super().__init__()
+        self.seq_len = seq_len
+
+        self.conv_net = nn.Sequential(
+            nn.Conv1d(in_channels=n_vocab_tokens, out_channels=num_filters, kernel_size=kernel_size),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=pool_window),
+            nn.Dropout(dropout),
+        )
+
+        hidden_size = num_filters
+        num_layers = 1
+        num_heads = 1
+
+        self.transformer = nn.Transformer(
+            d_model=hidden_size,
+            nhead=num_heads,
+            num_encoder_layers=num_layers,
+            num_decoder_layers=1,
+            dim_feedforward=hidden_size,
+            dropout=dropout,
+            batch_first=True
+        )
+
+        self.classifier = nn.Sequential(nn.Flatten(), nn.LazyLinear(out_features=num_classes))
+
+    def forward(self, x):
+        # (batch_size x channel x seq_len)
+        x = x.permute(0, 2, 1)
+        x = self.conv_net(x)
+
+        x = x.permute(0, 2, 1)
+        x = self.transformer.encoder(x)
+
+        out = self.classifier(x)
+        return out
+
