@@ -32,7 +32,7 @@ def load_data(data_path="./dna_seq_families.csv"):
     # Remove empty sequences
     df = df[df['dna_sequence'].notna()]
 
-    df['words'] = df.apply(lambda x: getKmers(x['dna_sequence'], size=3), axis=1)
+    df['words'] = df.apply(lambda x: getKmers(x['dna_sequence'], size=5), axis=1)
     df["in_string"] = df["words"].apply(lambda x: ' '.join(x))
     # df["dna_sequence_copy"] = df["dna_sequence"]
     # df["dna_sequence"] = df["in_string"]
@@ -48,10 +48,9 @@ def load_data(data_path="./dna_seq_families.csv"):
 
     global all_kmers
     # generate all possible k-mers from the bases A, C, G, T, N
-    for k1 in ['A', 'C', 'G', 'T', 'N']:
-        for k2 in ['A', 'C', 'G', 'T', 'N']:
-            for k3 in ['A', 'C', 'G', 'T', 'N']:
-                all_kmers = all_kmers.union([f"{k1}{k2}{k3}"])
+    bases = 'ACGT'
+    # all_kmers = {f"{k1}{k2}{k3}" for k1 in bases for k2 in bases for k3 in bases}
+    all_kmers = {f"{k1}{k2}{k3}{k4}{k5}" for k1 in bases for k2 in bases for k3 in bases for k4 in bases for k5 in bases}
 
     # build a dictionary to map kmers to their index
     global kmers_dict
@@ -107,7 +106,7 @@ def one_hot_encode(seq):
     # vec = np.array([nucleotide_encoding[x] for x in seq])
 
     # get the kmers from the sequence
-    seq_kmers = getKmers(seq, size=3)
+    seq_kmers = getKmers(seq, size=5)
 
     global kmers_dict
     # get the kmer index for each kmer in the sequence

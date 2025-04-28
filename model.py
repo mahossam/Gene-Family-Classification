@@ -29,7 +29,7 @@ class DNA_CNN(nn.Module):
                  n_vocab_tokens=5,
                  num_filters=32, # 27
                  kernel_size=24, # 24
-                 pool_window=4,
+                 pool_window=2,
                  dropout=0.4):
         super().__init__()
         self.seq_len = seq_len
