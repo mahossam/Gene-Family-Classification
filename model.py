@@ -24,7 +24,6 @@ class DNA_Linear(nn.Module):
 # basic CNN model
 class DNA_CNN(nn.Module):
     def __init__(self,
-                 seq_len,
                  num_classes,
                  n_vocab_tokens=5,
                  num_filters=32, # 27
@@ -32,8 +31,6 @@ class DNA_CNN(nn.Module):
                  pool_window=2,
                  dropout=0.4):
         super().__init__()
-        self.seq_len = seq_len
-
         self.conv_net = nn.Sequential(
             nn.Conv1d(in_channels=n_vocab_tokens, out_channels=num_filters, kernel_size=kernel_size),
             nn.ReLU(),
@@ -59,7 +56,6 @@ class DNA_EMBED_CNN(nn.Module):
                  pool_window=2,
                  dropout=0.6):
         super().__init__()
-        self.seq_len = seq_len
 
         embedding_dim = 256
         self.encoder = nn.Embedding(num_embeddings=n_vocab_tokens, embedding_dim=embedding_dim)
@@ -113,7 +109,6 @@ class DNA_CNN_LSTM(nn.Module):
                  pool_window=3,
                  dropout=0.5):
         super().__init__()
-        self.seq_len = seq_len
         # self.encoder = nn.Embedding(num_embeddings=n_vocab_tokens, embedding_dim=num_filters)
         self.encoder_1 = nn.Sequential(
             nn.Conv1d(in_channels=n_vocab_tokens, out_channels=num_filters, kernel_size=kernel_size),
@@ -153,8 +148,6 @@ class DNA_CNN_TRANSFORMER(nn.Module):
                  pool_window=3,
                  dropout=0.6):
         super().__init__()
-        self.seq_len = seq_len
-
         self.conv_net = nn.Sequential(
             nn.Conv1d(in_channels=n_vocab_tokens, out_channels=num_filters, kernel_size=kernel_size),
             nn.ReLU(),
