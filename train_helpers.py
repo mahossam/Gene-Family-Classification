@@ -3,7 +3,8 @@ from typing import Dict
 import numpy as np
 import torch
 from torchmetrics import Accuracy, F1Score, Precision, Recall, MetricCollection
-
+import torch
+from torch.utils.tensorboard import SummaryWriter
 
 def compute_metrics(y_pred, y_true, y_probs, num_classes) -> Dict[str, float]:
     '''Compute the accuracy and classification metrics from the predictions and probs'''
@@ -113,6 +114,7 @@ def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, devi
     # keep track of losses
     train_losses = []
     val_losses = []
+    writer = SummaryWriter()
 
     # loop through epochs
     for epoch in range(epochs):
@@ -125,6 +127,7 @@ def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, devi
                                                     num_classes=num_classes,
                                                     device=device)
         print(f"E{epoch} | Train loss: {train_loss:.3f} | metrics: {train_summary}")
+        writer.add_scalar("Train loss (per batch)", train_loss, epoch)
 
         # take a validation step
         val_loss, summary_message, _, _, _ = get_eval_summary(model=model,
@@ -133,6 +136,7 @@ def fit(epochs, model, loss_func, optimizer, train_dl, val_dl, num_classes, devi
                                                               num_classes=num_classes,
                                                               device=device)
         print(f"-------- | Val: {summary_message}")
+        writer.add_scalar("Val loss (per batch)", val_loss, epoch)
 
         val_losses.append(val_loss)
 

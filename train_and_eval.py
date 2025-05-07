@@ -46,7 +46,7 @@ if __name__ == "__main__":
         DEVICE = torch.device('mps' if torch.mps.is_available() else 'cpu')
 
         # model = DNA_Linear(seq_len=max_seq_len-2, num_classes=num_classes, n_vocab_tokens=len(kmers_dict))
-        model = DNA_CNN(seq_len=max_seq_len-2, num_classes=num_classes,
+        model = DNA_CNN(num_classes=num_classes,
                         n_vocab_tokens=len(kmers_dict))
         # model = DNA_CNN_TRANSFORMER(seq_len=max_seq_len - 2, num_classes=num_classes,
         #                 n_vocab_tokens=len(kmers_dict))
