@@ -1,9 +1,9 @@
 # This is my change in the test_branch
-# very simple linear model
+# This is yet another change that is meanningless
+# Very simple linear model, see details below
 from torch import nn
 import torch
 
-# very simple linear model
 class DNA_Linear(nn.Module):
     def __init__(self, seq_len, num_classes, n_vocab_tokens=5):
         super().__init__()
